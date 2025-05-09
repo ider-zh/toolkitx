@@ -1,6 +1,6 @@
 [project]
 name = "toolkitx"
-version = "0.0.1"
+version = "0.0.2"
 description = "A personal Python toolkit for common tasks"
 readme = "README.md"
 requires-python = ">=3.12"
