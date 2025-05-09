@@ -1,0 +1,91 @@
+name: Python Package CI/CD
+
+on:
+  push:
+    branches:
+      - '**'  # 在推送到任何分支时运行测试
+    tags:
+      - 'v*'  # 在推送版本标签 (例如 v0.1.0) 时触发发布
+  pull_request:
+    branches:
+      - main   # 在向 main 分支发起 Pull Request 时运行测试
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12"] # 与 pyproject.toml 中的 requires-python = ">=3.12" 对齐
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        # Install a specific version of uv.
+        version: "0.7.3"
+
+    - name: "Set up Python"
+      uses: actions/setup-python@v5
+      with:
+        python-version-file: ".python-version"
+
+    - name: Install the project
+      run: uv sync --locked --all-extras --dev
+
+    - name: Run tests with pytest
+      run: |
+        pytest
+
+    - name: Run tests
+      # For example, using `pytest`
+      run: uv run pytest tests
+
+  publish:
+    needs: test # 确保测试通过后才发布
+    runs-on: ubuntu-latest
+    # 仅在推送 'v*' 格式的标签时运行
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+
+    permissions:
+      # 对于受信任的发布 (Trusted Publishing) 至 PyPI，此权限是必需的
+      id-token: write
+      contents: read # 检出仓库需要
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        # Install a specific version of uv.
+        version: "0.7.3"
+
+    - name: "Set up Python"
+      uses: actions/setup-python@v5
+      with:
+        python-version-file: ".python-version"
+
+    - name: Install the project
+      run: uv sync --locked --all-extras --dev
+
+    - name: Build
+      run: uv build
+
+    - name: Publish
+      run: uv publish --token ${{ secrets.PYPI_API_TOKEN }}
+
+
+    - name: Create GitHub Release (Optional)
+      uses: softprops/action-gh-release@v2
+      if: success() # 仅在发布成功时创建 Release
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }} # Actions 自动提供此 token
+        tag_name: ${{ github.ref_name }}   # 使用当前的 tag 名称
+        name: Release ${{ github.ref_name }}
+        # body_path: CHANGELOG.md # 可选：如果您的项目有 CHANGELOG.md，可以用它填充发布说明
+        draft: false
+        prerelease: false
