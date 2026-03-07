@@ -29,6 +29,3 @@ packages = ["toolkitx"]
 [project.urls]
 "Homepage" = "https://github.com/ider-zh/toolkitx"
 "Bug Tracker" = "https://github.com/ider-zh/toolkitx/issues"
-
-[tool.uv]
-index-url = "https://mirrors.aliyun.com/pypi/simple/"
