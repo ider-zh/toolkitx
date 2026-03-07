@@ -6,11 +6,11 @@ import hashlib
 import logging
 import httpx
 import time
+import tempfile
 
 from tencentcloud.common.credential import Credential
 from tencentcloud.tmt.v20180321.tmt_client import TmtClient
 from tencentcloud.tmt.v20180321.models import TextTranslateRequest
-from tencentcloud.tmt.v20180321.models import TextTranslateResponse
 
 logger = logging.getLogger(__name__)
 
@@ -319,9 +319,8 @@ if __name__ == "__main__":
     # Example for Baidu (assuming ENV VARS are set)
     try:
         print("Testing Baidu Translator...")
-        # Create a directory for cache if it doesn't exist
-        baidu_cache_dir = "/tmp/translator_cache/baidu"
-        os.makedirs(baidu_cache_dir, exist_ok=True)
+        # Create a temporary directory for cache
+        baidu_cache_dir = tempfile.mkdtemp(prefix="translator_cache_baidu_")
 
         baidu_translator = Translator(engine="baidu", cache_path=baidu_cache_dir, target_lang='en', source_lang='auto')
         
@@ -355,9 +354,9 @@ if __name__ == "__main__":
     # Example for Tencent (assuming ENV VARS are set)
     try:
         print("Testing Tencent Translator...")
-        tencent_cache_dir = "/tmp/translator_cache/tencent"
-        os.makedirs(tencent_cache_dir, exist_ok=True)
-        
+        # Create a temporary directory for cache
+        tencent_cache_dir = tempfile.mkdtemp(prefix="translator_cache_tencent_")
+
         # You can pass api_id and api_key directly if not using ENV VARS
         # tencent_translator = Translator(
         #     engine="tencent",

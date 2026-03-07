@@ -1,6 +1,3 @@
-import re
-
-
 # Define sentence terminators as a tuple for easy checking
 SENTENCE_TERMINATORS = ('.', '!', '?')
 
