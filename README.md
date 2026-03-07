@@ -117,3 +117,15 @@ queue.process(worker_func=extract_entity, concurrency=10)
 results = queue.get_results(response_model=EntityModel)
 print(results)
 ```
+
+## Changelog
+
+### v0.0.4 (2026-03-07)
+- Added `task_utils` module with `with_resilience` decorator for API resilience
+- Added `PersistentTaskQueue` class for persistent task processing with SQLite backend
+- Added comprehensive documentation for new features
+- Bumped version to 0.0.4
+- Updated dependencies (httpx, tencentcloud-sdk-python, pytest, etc.)
+- Removed `hello` script and related functionality
+- Added `polars`, `pydantic`, and `tqdm` as dependencies
+- Improved translator module to use `tempfile` for cache paths
