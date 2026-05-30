@@ -8,12 +8,22 @@ def _expand_table_cells(table):
         return
     
     num_rows = len(rows)
-    # Calculate max columns
+    # Calculate actual grid width accounting for rowspans
     max_cols = 0
-    for tr in rows:
+    occupied = set() # (row, col)
+    for row_idx, tr in enumerate(rows):
         cells = tr.find_all(["td", "th"], recursive=False)
-        col_count = sum(max(1, int(c.get("colspan", 1))) for c in cells)
-        max_cols = max(max_cols, col_count)
+        col = 0
+        for cell in cells:
+            while (row_idx, col) in occupied:
+                col += 1
+            rs = max(1, int(cell.get("rowspan", 1)))
+            cs = max(1, int(cell.get("colspan", 1)))
+            for dr in range(rs):
+                for dc in range(cs):
+                    occupied.add((row_idx + dr, col + dc))
+            col += cs
+            max_cols = max(max_cols, col)
         
     grid = [[None] * max_cols for _ in range(num_rows)]
     
@@ -57,7 +67,7 @@ def _expand_table_cells(table):
         soup = soup.parent
 
     for row_idx, tr in enumerate(rows):
-        for cell in tr.find_all(["td", "th"]):
+        for cell in tr.find_all(["td", "th"], recursive=False):
             cell.decompose()
         for col_idx in range(max_cols):
             data = grid[row_idx][col_idx]
