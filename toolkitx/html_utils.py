@@ -86,3 +86,57 @@ def _expand_table_cells(table):
                 new_cell = soup.new_tag("td")
                 new_cell.string = "\u200b"
             tr.append(new_cell)
+
+from markdownify import markdownify as md
+
+def html_to_markdown(html: str, handle_nested_tables: str = "json", **kwargs) -> str:
+    """
+    Converts HTML to Markdown with robust table support.
+    
+    Nested tables are converted to JSON strings to maintain structure in Markdown cells.
+    Merged cells (colspan/rowspan) are expanded.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    
+    # Process tables innermost-first
+    while True:
+        tables = soup.find_all("table")
+        if not tables:
+            break
+            
+        # Find a table that doesn't contain other tables
+        innermost_table = None
+        for t in tables:
+            if not t.find("table"):
+                innermost_table = t
+                break
+        
+        if not innermost_table:
+            # All remaining tables have cycles? (Should not happen with valid HTML)
+            # Just process the first one
+            innermost_table = tables[0]
+            
+        # If this table is inside another table, convert it to JSON
+        if innermost_table.find_parent("table"):
+            if handle_nested_tables == "json":
+                rows_data = []
+                for tr in innermost_table.find_all("tr", recursive=False):
+                    row = [cell.get_text(strip=True) for cell in tr.find_all(["td", "th"], recursive=False)]
+                    rows_data.append(row)
+                json_str = json.dumps(rows_data, ensure_ascii=False)
+                innermost_table.replace_with(f"`{json_str}`")
+            else:
+                # Default behavior: let markdownify handle it or simple text
+                innermost_table.unwrap() 
+        else:
+            # Top-level table: Expand it
+            _expand_table_cells(innermost_table)
+            # Mark it so we don't process it again in this loop
+            innermost_table.name = "processed_table"
+
+    # Restore tag names
+    for t in soup.find_all("processed_table"):
+        t.name = "table"
+        
+    return md(str(soup), **kwargs).strip()
+
