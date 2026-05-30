@@ -3,3 +3,13 @@ update:
 
 test_translator:
 	uv run --env-file .env  python toolkitx/lab/translator.py 
+
+lint:
+	uv run ruff check .
+
+format:
+	uv run ruff format .
+
+fix:
+	uv run ruff check . --fix
+ 
