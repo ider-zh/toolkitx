@@ -1,14 +1,20 @@
 from bs4 import BeautifulSoup
 import json
+from markdownify import markdownify as md
 
-def _expand_table_cells(table):
-    """Normalizes a table by expanding colspan and rowspan."""
+def _get_table_rows(table):
+    """Robustly find all logical rows in a table, including those in thead/tbody/tfoot."""
     rows = []
     for child in table.find_all(["tr", "thead", "tbody", "tfoot"], recursive=False):
         if child.name == "tr":
             rows.append(child)
         else:
             rows.extend(child.find_all("tr", recursive=False))
+    return rows
+
+def _expand_table_cells(table):
+    """Normalizes a table by expanding colspan and rowspan."""
+    rows = _get_table_rows(table)
             
     if not rows:
         return
@@ -87,8 +93,6 @@ def _expand_table_cells(table):
                 new_cell.string = "\u200b"
             tr.append(new_cell)
 
-from markdownify import markdownify as md
-
 def html_to_markdown(html: str, handle_nested_tables: str = "json", **kwargs) -> str:
     """
     Converts HTML to Markdown with robust table support.
@@ -119,12 +123,36 @@ def html_to_markdown(html: str, handle_nested_tables: str = "json", **kwargs) ->
         # If this table is inside another table, convert it to JSON
         if innermost_table.find_parent("table"):
             if handle_nested_tables == "json":
+                # Expand nested table before JSON-ification
+                _expand_table_cells(innermost_table)
+                
                 rows_data = []
-                for tr in innermost_table.find_all("tr", recursive=False):
-                    row = [cell.get_text(strip=True) for cell in tr.find_all(["td", "th"], recursive=False)]
+                for tr in _get_table_rows(innermost_table):
+                    row = []
+                    for cell in tr.find_all(["td", "th"], recursive=False):
+                        # Convert cell content to markdown before JSON-ification
+                        content_html = "".join(str(c) for c in cell.contents).strip()
+                        cell_md = md(content_html, **kwargs).strip()
+                        
+                        # Fix 3: Heuristically reduce escaped quotes in Markdown links/images
+                        # by using single quotes if double quotes are present in URLs
+                        # Standard markdownify usually doesn't use quotes for URLs,
+                        # but if it does (e.g. for titles), this helps.
+                        # This is a simple string replacement for common patterns.
+                        if '\"' in cell_md:
+                            # Replace escaped quotes in links: [text](url \"title\") -> [text](url 'title')
+                            # Note: cell_md is NOT yet JSON escaped here.
+                            import re
+                            cell_md = re.sub(r'(\[[^\]]*\]\([^)]*)\"([^)]*)\"', r"\1'\2'", cell_md)
+                            cell_md = re.sub(r'(\!\[[^\]]*\]\([^)]*)\"([^)]*)\"', r"\1'\2'", cell_md)
+                            
+                        row.append(cell_md)
                     rows_data.append(row)
+                
                 json_str = json.dumps(rows_data, ensure_ascii=False)
-                innermost_table.replace_with(f"`{json_str}`")
+                new_tag = soup.new_tag("code")
+                new_tag.string = json_str
+                innermost_table.replace_with(new_tag)
             else:
                 # Default behavior: let markdownify handle it or simple text
                 innermost_table.unwrap() 
@@ -137,6 +165,10 @@ def html_to_markdown(html: str, handle_nested_tables: str = "json", **kwargs) ->
     # Restore tag names
     for t in soup.find_all("processed_table"):
         t.name = "table"
+        
+    # Ensure images are kept in table cells
+    if "keep_inline_images_in" not in kwargs:
+        kwargs["keep_inline_images_in"] = ["td", "th"]
         
     return md(str(soup), **kwargs).strip()
 
