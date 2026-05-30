@@ -3,7 +3,13 @@ import json
 
 def _expand_table_cells(table):
     """Normalizes a table by expanding colspan and rowspan."""
-    rows = table.find_all("tr", recursive=False)
+    rows = []
+    for child in table.find_all(["tr", "thead", "tbody", "tfoot"], recursive=False):
+        if child.name == "tr":
+            rows.append(child)
+        else:
+            rows.extend(child.find_all("tr", recursive=False))
+            
     if not rows:
         return
     
