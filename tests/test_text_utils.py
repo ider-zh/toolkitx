@@ -1,5 +1,6 @@
 import pytest
-from toolkitx.text_utils import truncate_text_smart, split_text_by_word_count
+
+from toolkitx.text_utils import split_text_by_word_count, truncate_text_smart
 
 
 # 基本测试用例
@@ -33,6 +34,7 @@ def test_char_mode_basic_truncation():
         truncate_text_smart(text, 2, mode="char", suffix="") == "hello"
     )  # 5 - 3 = 2 -> "he" + "..."
 
+
 def test_char_mode_custom_suffix():
     text = "hello world"
     assert (
@@ -44,14 +46,18 @@ def test_char_mode_custom_suffix():
 def test_word_mode_basic_truncation():
     text = "This is a very long sentence."
     assert (
-        truncate_text_smart(text, 10, mode="word", suffix="...") == "This is a very long sentence."
+        truncate_text_smart(text, 10, mode="word", suffix="...")
+        == "This is a very long sentence."
     )  # "This is a" (len 9) + "..."
     assert (
-        truncate_text_smart(text, 3, mode="word", suffix="...", tolerance=1) == "This is a..."
+        truncate_text_smart(text, 3, mode="word", suffix="...", tolerance=1)
+        == "This is a..."
     )  # "This is a very" (len 14) + "..."
     assert (
-        truncate_text_smart(text, 3, mode="word", suffix="...", tolerance=5) == "This is a very long sentence."
-    )  #
+        truncate_text_smart(text, 3, mode="word", suffix="...", tolerance=5)
+        == "This is a very long sentence."
+    )
+
 
 def test_word_mode_no_truncation_needed():
     text = "Short text."
@@ -60,9 +66,8 @@ def test_word_mode_no_truncation_needed():
 
 def test_word_mode_limit_allows_one_word():
     text = "Firstword second"
-    assert (
-        truncate_text_smart(text, 9, mode="word", suffix="...") == "Firstword second"
-    )
+    assert truncate_text_smart(text, 9, mode="word", suffix="...") == "Firstword second"
+
 
 # 错误处理测试
 def test_invalid_mode():
@@ -73,18 +78,21 @@ def test_invalid_mode():
 def test_split_empty_text():
     assert split_text_by_word_count("", max_words=10, overlap=2) == []
 
+
 def test_split_text_shorter_than_max_words():
-    text = "This is a short text." # 5 words
+    text = "This is a short text."  # 5 words
     expected = ["This is a short text."]
     assert split_text_by_word_count(text, max_words=10, overlap=2) == expected
 
+
 def test_split_no_overlap():
-    text = "one two three four five six seven eight nine ten" # 10 words
+    text = "one two three four five six seven eight nine ten"  # 10 words
     expected = ["one two three four five", "six seven eight nine ten"]
     assert split_text_by_word_count(text, max_words=5, overlap=0) == expected
 
+
 def test_split_with_overlap():
-    text = "one two three four five six seven eight nine ten" # 10 words
+    text = "one two three four five six seven eight nine ten"  # 10 words
     # max_words=5, overlap=2. step = 5-2 = 3
     # 1. words[0:5] -> "one two three four five"
     # 2. words[3:3+5] -> words[3:8] -> "four five six seven eight"
@@ -92,12 +100,13 @@ def test_split_with_overlap():
     expected = [
         "one two three four five",
         "four five six seven eight",
-        "seven eight nine ten"
+        "seven eight nine ten",
     ]
     assert split_text_by_word_count(text, max_words=5, overlap=2) == expected
 
+
 def test_split_exact_multiple_with_overlap():
-    text = "a b c d e f g h i" # 9 words
+    text = "a b c d e f g h i"  # 9 words
     # max_words=5, overlap=2. step = 3
     # 1. words[0:5] -> "a b c d e"
     # 2. words[3:8] -> "d e f g h"
@@ -105,26 +114,33 @@ def test_split_exact_multiple_with_overlap():
     expected = ["a b c d e", "d e f g h", "g h i"]
     assert split_text_by_word_count(text, max_words=5, overlap=2) == expected
 
+
 def test_split_not_exact_multiple_with_overlap():
-    text = "a b c d e f g h i j" # 10 words
+    text = "a b c d e f g h i j"  # 10 words
     # max_words=4, overlap=1. step = 3
     # 1. words[0:4] -> "a b c d"
     # 2. words[3:7] -> "d e f g"
     # 3. words[6:10] -> "g h i j"
     # 4. words[9:13] -> "j" (actual: "j")
-    expected = ["a b c d", "d e f g", "g h i j",]
+    expected = [
+        "a b c d",
+        "d e f g",
+        "g h i j",
+    ]
     assert split_text_by_word_count(text, max_words=4, overlap=1) == expected
 
+
 def test_split_overlap_zero():
-    text = "one two three four five six" # 6 words
+    text = "one two three four five six"  # 6 words
     # max_words=3, overlap=0. step = 3
     # 1. words[0:3] -> "one two three"
     # 2. words[3:6] -> "four five six"
     expected = ["one two three", "four five six"]
     assert split_text_by_word_count(text, max_words=3, overlap=0) == expected
 
+
 def test_split_max_overlap():
-    text = "one two three four five six" # 6 words
+    text = "one two three four five six"  # 6 words
     # max_words=3, overlap=2. step = 1
     # 1. words[0:3] -> "one two three"
     # 2. words[1:4] -> "two three four"
@@ -140,28 +156,41 @@ def test_split_max_overlap():
     ]
     assert split_text_by_word_count(text, max_words=3, overlap=2) == expected
 
+
 def test_split_max_words_one_no_overlap():
     text = "a b c"
     expected = ["a", "b", "c"]
     assert split_text_by_word_count(text, max_words=1, overlap=0) == expected
 
+
 def test_split_max_words_one_with_overlap_invalid_assert():
     # overlap must be < max_words. So overlap=0 is the only valid case if max_words=1
     text = "a b c"
-    with pytest.raises(AssertionError, match="Overlap must be >= 0 and less than max_words"):
+    with pytest.raises(
+        AssertionError, match="Overlap must be >= 0 and less than max_words"
+    ):
         split_text_by_word_count(text, max_words=1, overlap=1)
+
 
 def test_split_invalid_overlap_too_large():
     text = "one two three four"
-    with pytest.raises(AssertionError, match="Overlap must be >= 0 and less than max_words"):
+    with pytest.raises(
+        AssertionError, match="Overlap must be >= 0 and less than max_words"
+    ):
         split_text_by_word_count(text, max_words=3, overlap=3)
-    with pytest.raises(AssertionError, match="Overlap must be >= 0 and less than max_words"):
+    with pytest.raises(
+        AssertionError, match="Overlap must be >= 0 and less than max_words"
+    ):
         split_text_by_word_count(text, max_words=3, overlap=4)
+
 
 def test_split_invalid_overlap_negative():
     text = "one two three four"
-    with pytest.raises(AssertionError, match="Overlap must be >= 0 and less than max_words"):
+    with pytest.raises(
+        AssertionError, match="Overlap must be >= 0 and less than max_words"
+    ):
         split_text_by_word_count(text, max_words=3, overlap=-1)
+
 
 def test_split_long_text_performance_check():
     # This is a basic check, not a rigorous performance test
@@ -190,7 +219,7 @@ def test_split_long_text_performance_check():
 
 
 def test_split_text_with_extra_spaces():
-    text = "word1  word2   word3    word4" # split() handles multiple spaces
+    text = "word1  word2   word3    word4"  # split() handles multiple spaces
     # words = ["word1", "word2", "word3", "word4"]
     expected = ["word1 word2", "word3 word4"]
     assert split_text_by_word_count(text, max_words=2, overlap=0) == expected
@@ -201,5 +230,11 @@ def test_split_text_with_extra_spaces():
     # 1. words[0:3] -> "word1 word2 word3"
     # 2. words[2:5] -> "word3 word4 word5"
     # 3. words[4:7] -> "word5"
-    expected_overlap = ["word1 word2 word3", "word3 word4 word5",]
-    assert split_text_by_word_count(text_overlap, max_words=3, overlap=1) == expected_overlap
+    expected_overlap = [
+        "word1 word2 word3",
+        "word3 word4 word5",
+    ]
+    assert (
+        split_text_by_word_count(text_overlap, max_words=3, overlap=1)
+        == expected_overlap
+    )

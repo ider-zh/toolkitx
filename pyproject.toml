@@ -36,7 +36,16 @@ line-length = 88
 # Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`)  codes by default.
 # Also enable isort (`I`) and some others.
 select = ["E4", "E7", "E9", "F", "I", "N", "B", "UP", "PL"]
-ignore = []
+ignore = [
+    "PLR0911", # Too many return statements
+    "PLR0912", # Too many branches
+    "PLR0913", # Too many arguments
+    "PLR0915", # Too many statements
+    "E701",    # Multiple statements on one line (colon)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["PLR2004", "PLC0415", "N806", "F841"]
 
 [tool.ruff.format]
 quote-style = "double"

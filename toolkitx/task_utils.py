@@ -1,21 +1,22 @@
-import pathlib
-import random
-import sqlite3
 import json
 import logging
-import threading
+import pathlib
+import random
 import signal
-import polars as pl
-from typing import Callable, Type, Optional
-from pydantic import BaseModel
-from functools import partial, wraps
-from tqdm import tqdm
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import sqlite3
+import threading
 import time
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import partial, wraps
+
+import polars as pl
+from pydantic import BaseModel
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
-class _tokenBucket:
+class TokenBucket:
     """线程安全的令牌桶限流器"""
     def __init__(self, capacity: float, fill_rate: float):
         self.capacity = float(capacity)
@@ -33,8 +34,7 @@ class _tokenBucket:
                 self.last_update = now
                 
                 # 令牌数不能超过桶的容量
-                if self._tokens > self.capacity:
-                    self._tokens = self.capacity
+                self._tokens = min(self._tokens, self.capacity)
 
                 # 如果令牌足够，扣除并放行
                 if self._tokens >= tokens:
@@ -45,7 +45,7 @@ class _tokenBucket:
             time.sleep(0.05)
 
 def with_resilience(
-    qps: Optional[float] = None, 
+    qps: float | None = None, 
     max_retries: int = 5, 
     base_delay: float = 1.0, 
     max_delay: float = 60.0
@@ -58,7 +58,7 @@ def with_resilience(
     :param max_delay: 退避最大延迟 (秒)
     """
     # 装饰器初始化时创建共享的令牌桶实例
-    bucket = _tokenBucket(capacity=qps, fill_rate=qps) if qps else None
+    bucket = TokenBucket(capacity=qps, fill_rate=qps) if qps else None
 
     def decorator(func: Callable):
         @wraps(func)
@@ -336,7 +336,7 @@ class PersistentTaskQueue:
                 logging.info("✅ 优雅停机完成，进度已安全落盘。下次启动将自动接续执行。")
 
 
-    def get_results(self, response_model: Optional[Type[BaseModel]] = None) -> pl.DataFrame:
+    def get_results(self, response_model: type[BaseModel] | None = None) -> pl.DataFrame:
         """
         获取所有已完成任务的结果
         

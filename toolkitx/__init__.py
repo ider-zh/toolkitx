@@ -1,6 +1,6 @@
 # 从子模块导入，使其可以直接从 toolkitx 包导入
-from .text_utils import truncate_text_smart, split_text_by_word_count
 from . import lab
+from .text_utils import split_text_by_word_count, truncate_text_smart
 
 # 定义 __all__，当用户使用 from toolkitx import * 时，会导入这些符号
 __all__ = [
@@ -21,4 +21,4 @@ except importlib.metadata.PackageNotFoundError:
     # 构建系统 (Hatchling) 在构建包时会使用 pyproject.toml 中的版本。
     # 一旦安装（即使是可编辑模式安装），importlib.metadata.version 应该能正常工作。
     # 对于未安装状态，可以设置一个占位符版本。
-    __version__ = "0.0.0.dev0" # 或者 "unknown"
+    __version__ = "0.0.0.dev0"  # 或者 "unknown"

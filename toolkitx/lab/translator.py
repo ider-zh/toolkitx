@@ -1,45 +1,46 @@
-import os
-from abc import ABC, abstractmethod
-from typing import Optional, Literal
-from diskcache import Cache
 import hashlib
+import json
 import logging
-import httpx
-import time
+import os
 import tempfile
+import time
+from abc import ABC, abstractmethod
+from typing import Literal
 
+import httpx
+from diskcache import Cache
 from tencentcloud.common.credential import Credential
-from tencentcloud.tmt.v20180321.tmt_client import TmtClient
 from tencentcloud.tmt.v20180321.models import TextTranslateRequest
+from tencentcloud.tmt.v20180321.tmt_client import TmtClient
 
 logger = logging.getLogger(__name__)
 
 # 定义支持的翻译引擎类型
 SUPPORTED_ENGINES = Literal["baidu", "tencent"]
 
-CHARSET = 'UTF-8'
+CHARSET = "UTF-8"
 CRLF = "\n"
 
 BAIDU_API_URL = "https://fanyi-api.baidu.com/api/trans/vip/translate"
+
 
 class TranslatorInterface(ABC):
     """
     Abstract base class for a translator.
     Defines the common interface for translation services.
     """
-    
+
     def __init__(
         self,
-        api_id: Optional[str] = None,
-        api_key: Optional[str] = None,
+        api_id: str | None = None,
+        api_key: str | None = None,
         text_chunk_size: int = 500,
     ):
         self.api_id = api_id
         self.api_key = api_key
         self.text_chunk_size = text_chunk_size
-        
-    
-    def translate(self, text: str, target_lang: str, source_lang: str = 'auto') -> str:
+
+    def translate(self, text: str, target_lang: str, source_lang: str = "auto") -> str:
         """
         Translate text from a source language to a target language.
 
@@ -51,54 +52,72 @@ class TranslatorInterface(ABC):
         segments = self._chunk_text_by_max_length(text)
         if len(segments) > 1:
             logger.debug(f"Split into [{len(segments)}] translated segments...")
-            
+
         translated_text_list = []
-        for i, content in enumerate(segments):
-            translated_text = self._translate(content, target_lang, source_lang, )
+        for _, content in enumerate(segments):
+            translated_text = self._translate(
+                content,
+                target_lang,
+                source_lang,
+            )
             translated_text_list.append(translated_text)
-            
+
         return CRLF.join(translated_text_list)
-    
+
     @abstractmethod
-    def _translate(self, text: str, target_lang: str,source_lang: str = 'auto',) -> str:
+    def _translate(
+        self,
+        text: str,
+        target_lang: str,
+        source_lang: str = "auto",
+    ) -> str:
         pass
-    
-    def _chunk_text_by_max_length(self, text:str) -> list[str]:
+
+    def _chunk_text_by_max_length(self, text: str) -> list[str]:
         if self.text_chunk_size <= 0:
             return [text]
-        
+
         segments = []
         segment_simple = []
         segment_simple_size = 0
-        
-        for line in text.split(CRLF):
-            line = line.strip()
+
+        for line_raw in text.split(CRLF):
+            line = line_raw.strip()
             if not line:
                 continue
-            
+
             line_size = len(line)
             if line_size > self.text_chunk_size:
-                logger.warning("one line length gather then text_chunk_size:",line[:10], self.text_chunk_size)
+                logger.warning(
+                    "one line length %d gather then text_chunk_size: %d",
+                    line_size,
+                    self.text_chunk_size,
+                )
                 # todo
-                
-            if line_size + segment_simple_size + len(segment_simple) - 1 > self.text_chunk_size:
+
+            if (
+                line_size + segment_simple_size + len(segment_simple) - 1
+                > self.text_chunk_size
+            ):
                 segments.append(CRLF.join(segment_simple))
                 segment_simple = []
                 segment_simple_size = 0
-                
+
             segment_simple.append(line)
             segment_simple_size += line_size
         if segment_simple:
             segments.append(CRLF.join(segment_simple))
         return segments
-            
-class BaiduTranslation(TranslatorInterface) :
-    
-    def __init__(self, api_id, api_key, api_url=BAIDU_API_URL, text_chunk_size=2000) -> None :
+
+
+class BaiduTranslation(TranslatorInterface):
+    def __init__(
+        self, api_id, api_key, api_url=BAIDU_API_URL, text_chunk_size=2000
+    ) -> None:
         TranslatorInterface.__init__(self, api_id, api_key, text_chunk_size)
         self.api_url = api_url
-        
-    def _translate(self, text, target_lang='en', source_lang='auto'): 
+
+    def _translate(self, text, target_lang="en", source_lang="auto"):
         """
         翻译文本段落
         :param text   : 待翻译文本段落
@@ -108,17 +127,15 @@ class BaiduTranslation(TranslatorInterface) :
         """
 
         salt, sign = self._to_sign(text)
-        headers = {
-            'Content-Type': 'application/x-www-form-urlencoded'
-        }
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
         # 请求体参数
-        payload = { # PEP8 推荐使用 payload 作为 POST 请求数据的变量名
-            'q': text,
-            'from': source_lang,
-            'to': target_lang,
-            'appid': self.api_id,
-            'salt': salt,
-            'sign': sign
+        payload = {  # PEP8 推荐使用 payload 作为 POST 请求数据的变量名
+            "q": text,
+            "from": source_lang,
+            "to": target_lang,
+            "appid": self.api_id,
+            "salt": salt,
+            "sign": sign,
         }
 
         trans_result = []
@@ -127,30 +144,40 @@ class BaiduTranslation(TranslatorInterface) :
             # httpx 默认超时时间是5秒，可以根据需要调整 timeout 参数
             # 例如: httpx.post(self.api_url, headers=headers, data=payload, timeout=10.0)
             response = httpx.post(self.api_url, headers=headers, data=payload)
-            response.raise_for_status() # 如果状态码是 4xx 或 5xx，则抛出 HTTPStatusError 异常
+            response.raise_for_status()  # 如果状态码是 4xx 或 5xx，则抛出 HTTPStatusError 异常
 
             # 检查响应状态码 (虽然 raise_for_status 会处理错误，但明确检查也可以)
-            if response.status_code == 200:
-                rst = response.json() # httpx 直接提供 .json() 方法解析 JSON
+            if response.status_code == httpx.codes.OK:
+                rst = response.json()  # httpx 直接提供 .json() 方法解析 JSON
                 if "trans_result" in rst and rst["trans_result"]:
                     for line in rst.get("trans_result"):
-                        trans_result.append(line.get("dst", "").strip()) # 添加默认值以防 "dst" 不存在
+                        trans_result.append(
+                            line.get("dst", "").strip()
+                        )  # 添加默认值以防 "dst" 不存在
                 elif "error_code" in rst:
-                    logger.error(f"翻译段落失败: 接口返回错误码 {rst['error_code']} - {rst.get('error_msg', '无错误信息')}")
+                    logger.error(
+                        f"翻译段落失败: 接口返回错误码 {rst['error_code']} - {rst.get('error_msg', '无错误信息')}"
+                    )
                 else:
-                    logger.error(f"翻译段落失败: 响应JSON中缺少 'trans_result' 或其为空。响应: {response.text}")
+                    logger.error(
+                        f"翻译段落失败: 响应JSON中缺少 'trans_result' 或其为空。响应: {response.text}"
+                    )
             # else: # raise_for_status 已经处理了非200的情况，这部分可以省略
             #     logger.error(f"翻译段落失败: 接口 [{response.status_code}] 异常. 响应: {response.text}")
 
-        except httpx.HTTPStatusError as e: # 处理 HTTP 状态错误
-            logger.error(f"翻译段落失败: HTTP 状态错误 {e.response.status_code}. 响应: {e.response.text}")
-        except httpx.RequestError as e: # 处理请求相关的其他错误 (例如网络问题)
+        except httpx.HTTPStatusError as e:  # 处理 HTTP 状态错误
+            logger.error(
+                f"翻译段落失败: HTTP 状态错误 {e.response.status_code}. 响应: {e.response.text}"
+            )
+        except httpx.RequestError as e:  # 处理请求相关的其他错误 (例如网络问题)
             logger.error(f"翻译段落失败: 请求错误 {type(e).__name__} - {e}")
-        except json.JSONDecodeError: # 处理 JSON 解析错误
+        except json.JSONDecodeError:  # 处理 JSON 解析错误
             logger.error(f"翻译段落失败: 无法解析响应JSON. 响应: {response.text}")
-        except Exception as e: # 捕获其他潜在错误
-            logger.error(f"翻译段落时发生未知错误: {type(e).__name__} - {e}. 响应文本 (如果可用): {getattr(response, 'text', 'N/A')}")
-            
+        except Exception as e:  # 捕获其他潜在错误
+            logger.error(
+                f"翻译段落时发生未知错误: {type(e).__name__} - {e}. 响应文本 (如果可用): {getattr(response, 'text', 'N/A')}"
+            )
+
         return CRLF.join(trans_result)
 
     def _to_sign(self, data: str) -> tuple[int, str]:
@@ -162,25 +189,23 @@ class BaiduTranslation(TranslatorInterface) :
         salt = int(time.time())
         # 构建签名字符串：appid + q + salt + 密钥
         sign_str = f"{self.api_id}{data}{salt}{self.api_key}"
-        
+
         # 计算 MD5 哈希值
         sign = hashlib.md5(sign_str.encode(CHARSET)).hexdigest()
         return salt, sign
 
 
+GZ_REGION = "ap-guangzhou"
+ARG_UNTRANSLATED_TEXT = "UntranslatedText"
 
-GZ_REGION = 'ap-guangzhou'
-ARG_UNTRANSLATED_TEXT = 'UntranslatedText'
 
-class TencentTranslation(TranslatorInterface) :
-
-    def __init__(self, api_id, api_key, region=GZ_REGION, text_chunk_size=2000) :
+class TencentTranslation(TranslatorInterface):
+    def __init__(self, api_id, api_key, region=GZ_REGION, text_chunk_size=2000):
         TranslatorInterface.__init__(self, api_id, api_key, text_chunk_size)
         cred = Credential(api_id, api_key)
         self.client = TmtClient(cred, region)
 
-    
-    def _translate(self, text, target_lang='en', source_lang='auto') :
+    def _translate(self, text, target_lang="en", source_lang="auto"):
         """
         翻译文本段落
         :param content      : 待翻译文本段落
@@ -189,7 +214,7 @@ class TencentTranslation(TranslatorInterface) :
                                 UntranslatedText: 忽略的翻译文本
         :return: 已翻译的文本段落
         """
-        
+
         req = TextTranslateRequest()
         req.SourceText = text
         req.Source = source_lang
@@ -197,8 +222,9 @@ class TencentTranslation(TranslatorInterface) :
         req.ProjectId = 0
         rsp = self.client.TextTranslate(req)
         return rsp.TargetText
-    
-class Translator():
+
+
+class Translator:
     """
     A translator implementation using py-transgpt with disk-based caching.
     Supports Baidu and Tencent translation engines.
@@ -208,10 +234,10 @@ class Translator():
         self,
         engine: SUPPORTED_ENGINES,
         cache_path: str,
-        api_id: Optional[str] = None,
-        api_key: Optional[str] = None,
-        target_lang: str = 'en', # Default target language
-        source_lang: str = 'auto' # Default source language
+        api_id: str | None = None,
+        api_key: str | None = None,
+        target_lang: str = "en",  # Default target language
+        source_lang: str = "auto",  # Default source language
     ):
         """
         Initialize the Translator.
@@ -227,7 +253,9 @@ class Translator():
         :raises ValueError: If the engine is not supported or API credentials are not found.
         """
         if engine not in ["baidu", "tencent"]:
-            raise ValueError(f"Unsupported engine: {engine}. Supported engines are 'baidu', 'tencent'.")
+            raise ValueError(
+                f"Unsupported engine: {engine}. Supported engines are 'baidu', 'tencent'."
+            )
 
         self.engine_name = engine
         self.cache = Cache(cache_path)
@@ -248,7 +276,9 @@ class Translator():
                     f"Baidu API ID and API Key are required. "
                     f"Provide them as arguments or set {env_api_id_name} and {env_api_key_name} environment variables."
                 )
-            self.translator_instance = BaiduTranslation(api_id=_api_id, api_key=_api_key)
+            self.translator_instance = BaiduTranslation(
+                api_id=_api_id, api_key=_api_key
+            )
 
         elif self.engine_name == "tencent":
             env_api_id_name = "TENCENT_API_ID"
@@ -260,13 +290,17 @@ class Translator():
                     f"Tencent Secret ID and Secret Key are required. "
                     f"Provide them as arguments or set {env_api_id_name} and {env_api_key_name} environment variables."
                 )
-            self.translator_instance = TencentTranslation(api_id=_api_id, api_key=_api_key)
-        
+            self.translator_instance = TencentTranslation(
+                api_id=_api_id, api_key=_api_key
+            )
+
     def _create_cache_key(self, text: str, target_lang: str, source_lang: str) -> str:
         """Helper to create a unique cache key."""
-        return f"{self.engine_name}:{source_lang}:{target_lang}:{hashlib.md5(text.encode("utf8")).hexdigest()}"
+        return f"{self.engine_name}:{source_lang}:{target_lang}:{hashlib.md5(text.encode('utf8')).hexdigest()}"
 
-    def translate(self, text: str, target_lang: Optional[str] = None, source_lang: Optional[str] = None) -> str:
+    def translate(
+        self, text: str, target_lang: str | None = None, source_lang: str | None = None
+    ) -> str:
         """
         Translate text using the configured engine and cache.
 
@@ -289,8 +323,12 @@ class Translator():
         # print(f"Cache miss. Translating: {text[:30]}...") # For debugging
         try:
             # py-transgpt's translate method takes (text, target_language, source_language)
-            translated_text = self.translator_instance.translate(text, _target_lang, _source_lang)
-            if translated_text: # Ensure we don't cache None or empty if translation fails silently
+            translated_text = self.translator_instance.translate(
+                text, _target_lang, _source_lang
+            )
+            if (
+                translated_text
+            ):  # Ensure we don't cache None or empty if translation fails silently
                 self.cache.set(cache_key, translated_text)
             return translated_text
         except Exception as e:
@@ -311,6 +349,7 @@ class Translator():
         """
         self.cache.close()
 
+
 # Example Usage (you can put this in a separate test file or a __main__ block)
 if __name__ == "__main__":
     # Ensure you have set your environment variables for BAIDU_API_ID, BAIDU_API_KEY
@@ -322,8 +361,13 @@ if __name__ == "__main__":
         # Create a temporary directory for cache
         baidu_cache_dir = tempfile.mkdtemp(prefix="translator_cache_baidu_")
 
-        baidu_translator = Translator(engine="baidu", cache_path=baidu_cache_dir, target_lang='en', source_lang='auto')
-        
+        baidu_translator = Translator(
+            engine="baidu",
+            cache_path=baidu_cache_dir,
+            target_lang="en",
+            source_lang="auto",
+        )
+
         text_to_translate_zh = "你好，世界！"
         print(f"Original (zh): {text_to_translate_zh}")
 
@@ -334,13 +378,14 @@ if __name__ == "__main__":
         # Second translation (should be from cache)
         translated_en_cached = baidu_translator.translate(text_to_translate_zh)
         print(f"Translated (en) from cache: {translated_en_cached}")
-        
+
         assert translated_en == translated_en_cached
 
         # Translate to French
-        translated_fr = baidu_translator.translate(text_to_translate_zh, target_lang='jp') # Baidu uses 'fra' for French
+        translated_fr = baidu_translator.translate(
+            text_to_translate_zh, target_lang="jp"
+        )  # Baidu uses 'fra' for French
         print(f"Translated (jp): {translated_fr}")
-
 
         # baidu_translator.clear_cache()
         baidu_translator.close_cache()
@@ -366,7 +411,12 @@ if __name__ == "__main__":
         #     target_lang='zh',
         #     source_lang='en'
         # )
-        tencent_translator = Translator(engine="tencent", cache_path=tencent_cache_dir, target_lang='zh', source_lang='en')
+        tencent_translator = Translator(
+            engine="tencent",
+            cache_path=tencent_cache_dir,
+            target_lang="zh",
+            source_lang="en",
+        )
 
         text_to_translate_en = "Hello, world!"
         print(f"Original (en): {text_to_translate_en}")
@@ -376,7 +426,7 @@ if __name__ == "__main__":
 
         translated_zh_cached = tencent_translator.translate(text_to_translate_en)
         print(f"Translated (zh) from cache: {translated_zh_cached}")
-        
+
         assert translated_zh == translated_zh_cached
 
         # tencent_translator.clear_cache()
