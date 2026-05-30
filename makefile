@@ -12,4 +12,10 @@ format:
 
 fix:
 	uv run ruff check . --fix
+
+docs-serve:
+	uv run --extra docs mkdocs serve
+
+docs-build:
+	uv run --extra docs mkdocs build
  
