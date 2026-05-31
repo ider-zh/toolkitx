@@ -104,16 +104,35 @@ def html_to_markdown(html: str, handle_nested_tables: str = "json", **kwargs) ->
     Merged cells (colspan/rowspan) are expanded.
 
     Examples:
+        # Standard table conversion
         >>> html = "<table><tr><td>Cell 1</td><td>Cell 2</td></tr></table>"
         >>> print(html_to_markdown(html))
         |  |  |
         | --- | --- |
         | Cell 1 | Cell 2 |
         
-        >>> nested_html = "<table><tr><td>Outer <table><tr><td>Inner</td></tr></table></td></tr></table>"
-        >>> md = html_to_markdown(nested_html)
-        >>> "Outer" in md and "Inner" in md
-        True
+        # Colspan expansion: content is repeated in the expanded cells
+        >>> html_colspan = "<table><tr><td colspan='2'>Merged</td><td>Normal</td></tr></table>"
+        >>> print(html_to_markdown(html_colspan))
+        |  |  |  |
+        | --- | --- | --- |
+        | Merged | Merged | Normal |
+
+        # Rowspan expansion: content is repeated in subsequent rows
+        >>> html_rowspan = "<table><tr><td rowspan='2'>Rows</td><td>A</td></tr><tr><td>B</td></tr></table>"
+        >>> print(html_to_markdown(html_rowspan))
+        |  |  |
+        | --- | --- |
+        | Rows | A |
+        | Rows | B |
+
+        # Nested tables: inner tables are serialized as JSON code blocks
+        >>> nested_html = "<table><tr><td>Outer <table><tr><td>Inner 1</td><td>Inner 2</td></tr></table></td></tr></table>"
+        >>> md_output = html_to_markdown(nested_html)
+        >>> print(md_output)
+        |  |
+        | --- |
+        | Outer `[["Inner 1", "Inner 2"]]` |
     """
     soup = BeautifulSoup(html, "html.parser")
     
