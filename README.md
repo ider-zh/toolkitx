@@ -1,131 +1,119 @@
-# toolkitx
+# ToolkitX
 
-A personal Python toolkit for common tasks. This package provides various utility functions to simplify common development workflows.
+[![Documentation Status](https://readthedocs.org/projects/toolkitx/badge/?version=latest)](https://toolkitx.readthedocs.io/en/latest/?badge=latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+
+A personal Python toolkit for common tasks. This package provides robust utility functions to simplify common development workflows, focusing on text processing, HTML conversion, and task resilience.
+
+📖 **Full Documentation**: [https://toolkitx.readthedocs.io/en/latest/](https://toolkitx.readthedocs.io/en/latest/)
 
 ## Features
 
+*   **HTML Utilities** (`toolkitx.html_utils`):
+    *   `html_to_markdown`: Robust HTML to Markdown conversion. Handles complex tables (colspan/rowspan) by expansion and serializes nested tables to JSON for better LLM/Agent understanding. Automatically promotes the first row to header if missing.
+    
 *   **Text Utilities** (`toolkitx.text_utils`):
-    *   `truncate_text_smart`: Smartly truncates text by characters or words, with options for suffix and tolerance, attempting to preserve sentence or word boundaries.
+    *   `truncate_text_smart`: Smartly truncates text by characters or words, attempting to preserve sentence or word boundaries with configurable tolerance.
     *   `split_text_by_word_count`: Splits long text into overlapping chunks based on word count.
     
 *   **Task Utilities** (`toolkitx.task_utils`):
-    *   `with_resilience`: A decorator for API resilience with rate limiting (QPS), exponential backoff retry, and jitter to prevent thundering herd.
+    *   `with_resilience`: A decorator for API resilience with rate limiting (QPS), exponential backoff retry, and jitter.
     *   `PersistentTaskQueue`: A persistent task queue with SQLite backend, supporting concurrent processing, automatic retry, crash recovery, and graceful shutdown.
     
 *   **Experimental Translator** (`toolkitx.lab.translator`):
-    *   `Translator`: A class providing translation capabilities using Baidu or Tencent translation APIs, with disk-based caching for performance. (Requires API credentials)
+    *   `Translator`: A class providing translation capabilities using Baidu or Tencent translation APIs, with disk-based caching.
 
 ## Installation
 
-1.  Clone the repository:
-    ```bash
-    git clone https://github.com/ider-zh/toolkitx.git
-    cd toolkitx
-    ```
-2.  Install the package. For development, you can install it in editable mode with development dependencies:
-    ```bash
-    pip install -e ".[dev]"
-    ```
-    For regular installation:
-    ```bash
-    pip install .
-    ```
+We recommend using [uv](https://github.com/astral-sh/uv) for fast and reliable dependency management.
+
+```bash
+# Clone the repository
+git clone https://github.com/ider-zh/toolkitx.git
+cd toolkitx
+
+# Install with development dependencies
+uv pip install -e ".[dev,docs]"
+```
 
 ## Usage
 
-### Text Utilities
+### HTML to Markdown (Robust Table Support)
 
 ```python
-from toolkitx import truncate_text_smart, split_text_by_word_count
+from toolkitx import html_to_markdown
 
-# Smart Truncation
-text = "This is a very long sentence that needs to be truncated."
-truncated_char = truncate_text_smart(text, limit=20, mode="char", suffix="...")
-print(f"Char truncated: {truncated_char}")
+# Handles merged cells (colspan/rowspan) and nested tables
+html = """
+<table>
+  <tr><td colspan="2">Merged Header</td></tr>
+  <tr><td>Cell 1</td><td>Cell 2</td></tr>
+  <tr>
+    <td>Outer</td>
+    <td>
+      <table><tr><td>Nested</td></tr></table>
+    </td>
+  </tr>
+</table>
+"""
 
-truncated_word = truncate_text_smart(text, limit=5, mode="word", suffix="...")
-print(f"Word truncated: {truncated_word}")
-
-# Split Text
-long_text = "This is a long piece of text that we want to split into several smaller chunks with some overlap between them for context."
-chunks = split_text_by_word_count(long_text, max_words=10, overlap=2)
-for i, chunk in enumerate(chunks):
-    print(f"Chunk {i+1}: {chunk}")
+md = html_to_markdown(html)
+print(md)
 ```
 
-### Task Utilities
-
-#### with_resilience Decorator
+### Text Smart Truncation
 
 ```python
-from toolkitx.task_utils import with_resilience
-import requests
+from toolkitx import truncate_text_smart
 
-@with_resilience(qps=5.0, max_retries=3, base_delay=1.0, max_delay=60.0)
-def call_api_with_retry(url: str) -> dict:
-    """Call API with automatic retry and rate limiting"""
-    response = requests.get(url, timeout=10)
-    response.raise_for_status()
-    return response.json()
-
-# The decorator will automatically:
-# - Limit requests to 5 per second (QPS)
-# - Retry up to 3 times on failure with exponential backoff
-# - Add random jitter to prevent thundering herd
-result = call_api_with_retry("https://api.example.com/data")
+text = "Hello World. This is a long sentence that should be truncated smartly."
+# Strips trailing punctuation automatically
+truncated = truncate_text_smart(text, limit=12) 
+print(truncated) # Output: 'Hello World...'
 ```
 
-#### PersistentTaskQueue
+### Task Resilience Decorator
 
 ```python
-import polars as pl
-from pydantic import BaseModel
-from toolkitx.task_utils import PersistentTaskQueue
-import tempfile
+from toolkitx import with_resilience
 
-# Define your data model
-class EntityModel(BaseModel):
-    name: str
-    is_company: bool
+@with_resilience(qps=2.0, max_retries=3)
+def fetch_data(url):
+    # This function will be rate-limited and retried automatically
+    pass
+```
 
-# Define your processing function
-def extract_entity(text: str) -> EntityModel:
-    """Extract entity information from text"""
-    # Your processing logic here
-    return EntityModel(name=text.split()[0], is_company=True)
+## Development
 
-# Prepare data
-df = pl.DataFrame({
-    "batch_id": ["batch1", "batch1", "batch2"],
-    "input_text": ["Apple Inc.", "Google Corp.", "Microsoft"]
-})
+### Running Tests
+```bash
+# Run unit tests
+make test
 
-# Initialize queue with temporary database
-with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
-    db_path = f.name
+# Run documentation tests (verify examples in docstrings)
+make test-docs
+```
 
-queue = PersistentTaskQueue(db_path=db_path, task_name="entity_extraction", max_retries=3)
+### Documentation
+```bash
+# Preview documentation locally
+make docs-serve
 
-# Setup and enqueue data
-queue.setup()
-queue.enqueue_dataframe(df)
-
-# Process tasks with concurrency control (supports Ctrl+C for graceful shutdown)
-queue.process(worker_func=extract_entity, concurrency=10)
-
-# Get results
-results = queue.get_results(response_model=EntityModel)
-print(results)
+# Build static documentation site
+make docs-build
 ```
 
 ## Changelog
 
+### v0.0.5 (2026-05-30)
+- **New Feature**: Added `html_utils` with robust `html_to_markdown` converter.
+- **Improved**: `truncate_text_smart` now strips trailing punctuation before appending suffix.
+- **Documentation**: Established full automated documentation system with MkDocs, Material theme, and Read the Docs integration.
+- **Verifiable Docs**: Added `doctest` examples to all core functions and a `make test-docs` target.
+- **Workflow**: Integrated `ruff` for linting and formatting.
+- **Dependency Management**: Fully transitioned to `uv` and pinned `mkdocs` for stability.
+
 ### v0.0.4 (2026-03-07)
-- Added `task_utils` module with `with_resilience` decorator for API resilience
-- Added `PersistentTaskQueue` class for persistent task processing with SQLite backend
-- Added comprehensive documentation for new features
-- Bumped version to 0.0.4
-- Updated dependencies (httpx, tencentcloud-sdk-python, pytest, etc.)
-- Removed `hello` script and related functionality
-- Added `polars`, `pydantic`, and `tqdm` as dependencies
-- Improved translator module to use `tempfile` for cache paths
+- Added `task_utils` module with `with_resilience` decorator and `PersistentTaskQueue`.
+- Added `polars`, `pydantic`, and `tqdm` as dependencies.
