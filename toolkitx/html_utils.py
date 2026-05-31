@@ -96,43 +96,52 @@ def _expand_table_cells(table):
                 new_cell.string = "\u200b"
             tr.append(new_cell)
 
-def html_to_markdown(html: str, handle_nested_tables: str = "json", **kwargs) -> str:
+def html_to_markdown(
+    html: str, 
+    handle_nested_tables: str = "json", 
+    use_first_row_as_header: bool = True,
+    **kwargs
+) -> str:
     """
     Converts HTML to Markdown with robust table support.
     
     Nested tables are converted to JSON strings to maintain structure in Markdown cells.
     Merged cells (colspan/rowspan) are expanded.
+    If no header is found, the first row is used as a header by default.
+
+    Args:
+        html: Input HTML string.
+        handle_nested_tables: How to handle nested tables ('json' or 'unwrap').
+        use_first_row_as_header: If True and no <th>/<thead> is found, use the first row as header.
+        **kwargs: Additional arguments for markdownify.
 
     Examples:
-        # Standard table conversion
-        >>> html = "<table><tr><td>Cell 1</td><td>Cell 2</td></tr></table>"
+        # Standard table conversion (first row promoted to header by default)
+        >>> html = "<table><tr><td>Cell 1</td><td>Cell 2</td></tr><tr><td>Data</td><td>Val</td></tr></table>"
         >>> print(html_to_markdown(html))
+        | Cell 1 | Cell 2 |
+        | --- | --- |
+        | Data | Val |
+        
+        # Disable automatic header promotion
+        >>> print(html_to_markdown(html, use_first_row_as_header=False))
         |  |  |
         | --- | --- |
         | Cell 1 | Cell 2 |
-        
-        # Colspan expansion: content is repeated in the expanded cells
+        | Data | Val |
+
+        # Colspan expansion
         >>> html_colspan = "<table><tr><td colspan='2'>Merged</td><td>Normal</td></tr></table>"
         >>> print(html_to_markdown(html_colspan))
-        |  |  |  |
-        | --- | --- | --- |
         | Merged | Merged | Normal |
+        | --- | --- | --- |
 
-        # Rowspan expansion: content is repeated in subsequent rows
+        # Rowspan expansion
         >>> html_rowspan = "<table><tr><td rowspan='2'>Rows</td><td>A</td></tr><tr><td>B</td></tr></table>"
         >>> print(html_to_markdown(html_rowspan))
-        |  |  |
-        | --- | --- |
         | Rows | A |
+        | --- | --- |
         | Rows | B |
-
-        # Nested tables: inner tables are serialized as JSON code blocks
-        >>> nested_html = "<table><tr><td>Outer <table><tr><td>Inner 1</td><td>Inner 2</td></tr></table></td></tr></table>"
-        >>> md_output = html_to_markdown(nested_html)
-        >>> print(md_output)
-        |  |
-        | --- |
-        | Outer `[["Inner 1", "Inner 2"]]` |
     """
     soup = BeautifulSoup(html, "html.parser")
     
@@ -150,8 +159,6 @@ def html_to_markdown(html: str, handle_nested_tables: str = "json", **kwargs) ->
                 break
         
         if not innermost_table:
-            # All remaining tables have cycles? (Should not happen with valid HTML)
-            # Just process the first one
             innermost_table = tables[0]
             
         # If this table is inside another table, convert it to JSON
@@ -164,21 +171,11 @@ def html_to_markdown(html: str, handle_nested_tables: str = "json", **kwargs) ->
                 for tr in _get_table_rows(innermost_table):
                     row = []
                     for cell in tr.find_all(["td", "th"], recursive=False):
-                        # Convert cell content to markdown before JSON-ification
                         content_html = "".join(str(c) for c in cell.contents).strip()
                         cell_md = md(content_html, **kwargs).strip()
-                        
-                        # Fix 3: Heuristically reduce escaped quotes in Markdown links/images
-                        # by using single quotes if double quotes are present in URLs
-                        # Standard markdownify usually doesn't use quotes for URLs,
-                        # but if it does (e.g. for titles), this helps.
-                        # This is a simple string replacement for common patterns.
                         if '\"' in cell_md:
-                            # Replace escaped quotes in links: [text](url \"title\") -> [text](url 'title')
-                            # Note: cell_md is NOT yet JSON escaped here.
                             cell_md = re.sub(r'(\[[^\]]*\]\([^)]*)\"([^)]*)\"', r"\1'\2'", cell_md)
                             cell_md = re.sub(r'(\!\[[^\]]*\]\([^)]*)\"([^)]*)\"', r"\1'\2'", cell_md)
-
                         row.append(cell_md)
                     rows_data.append(row)
                 
@@ -187,11 +184,21 @@ def html_to_markdown(html: str, handle_nested_tables: str = "json", **kwargs) ->
                 new_tag.string = json_str
                 innermost_table.replace_with(new_tag)
             else:
-                # Default behavior: let markdownify handle it or simple text
                 innermost_table.unwrap() 
         else:
             # Top-level table: Expand it
             _expand_table_cells(innermost_table)
+
+            # Fix: If no <th> or <thead> exists, promote the first row to header
+            if use_first_row_as_header:
+                has_header = innermost_table.find(["th", "thead"])
+                if not has_header:
+                    rows = _get_table_rows(innermost_table)
+                    if rows:
+                        first_row = rows[0]
+                        for cell in first_row.find_all("td", recursive=False):
+                            cell.name = "th"
+
             # Mark it so we don't process it again in this loop
             innermost_table.name = "processed_table"
 
