@@ -1,6 +1,7 @@
-import json
-from toolkitx.html_utils import html_to_markdown, _expand_table_cells
 from bs4 import BeautifulSoup
+
+from toolkitx.html_utils import _expand_table_cells, html_to_markdown
+
 
 def test_expand_table_cells():
     html = """

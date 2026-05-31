@@ -1,6 +1,9 @@
-from bs4 import BeautifulSoup
 import json
+import re
+
+from bs4 import BeautifulSoup
 from markdownify import markdownify as md
+
 
 def _get_table_rows(table):
     """Robustly find all logical rows in a table, including those in thead/tbody/tfoot."""
@@ -142,10 +145,9 @@ def html_to_markdown(html: str, handle_nested_tables: str = "json", **kwargs) ->
                         if '\"' in cell_md:
                             # Replace escaped quotes in links: [text](url \"title\") -> [text](url 'title')
                             # Note: cell_md is NOT yet JSON escaped here.
-                            import re
                             cell_md = re.sub(r'(\[[^\]]*\]\([^)]*)\"([^)]*)\"', r"\1'\2'", cell_md)
                             cell_md = re.sub(r'(\!\[[^\]]*\]\([^)]*)\"([^)]*)\"', r"\1'\2'", cell_md)
-                            
+
                         row.append(cell_md)
                     rows_data.append(row)
                 
