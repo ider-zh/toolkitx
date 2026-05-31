@@ -1,6 +1,20 @@
+"""
+ToolkitX: A personal Python toolkit for common tasks.
+
+This package provides a collection of utilities for text processing, HTML conversion,
+and resilient task execution.
+
+Modules:
+    text_utils: Smart text truncation and splitting.
+    html_utils: Robust HTML to Markdown conversion with table support.
+    task_utils: Persistent task queues and resilience decorators.
+    lab: Experimental features and research tools.
+"""
+
 # 从子模块导入，使其可以直接从 toolkitx 包导入
 from . import lab
 from .html_utils import html_to_markdown
+from .task_utils import PersistentTaskQueue, TokenBucket, with_resilience
 from .text_utils import split_text_by_word_count, truncate_text_smart
 
 # 定义 __all__，当用户使用 from toolkitx import * 时，会导入这些符号
@@ -8,6 +22,9 @@ __all__ = [
     "truncate_text_smart",
     "split_text_by_word_count",
     "html_to_markdown",
+    "PersistentTaskQueue",
+    "TokenBucket",
+    "with_resilience",
     "lab",
 ]
 
