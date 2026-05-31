@@ -159,12 +159,18 @@ def split_text_by_word_count(
     and `overlap` words overlapping between consecutive trunks.
 
     Args:
-        text (str): The input text.
-        max_words (int): Maximum number of words per chunk.
-        overlap (int): Number of overlapping words between adjacent chunks.
+        text: The input text.
+        max_words: Maximum number of words per chunk.
+        overlap: Number of overlapping words between adjacent chunks.
 
     Returns:
-        List[str]: A list of text chunks.
+        A list of text chunks.
+
+    Examples:
+        >>> split_text_by_word_count("one two three four five", max_words=2)
+        ['one two', 'three four', 'five']
+        >>> split_text_by_word_count("one two three four five", max_words=3, overlap=1)
+        ['one two three', 'three four five']
     """
     assert 0 <= overlap < max_words, "Overlap must be >= 0 and less than max_words"
 
