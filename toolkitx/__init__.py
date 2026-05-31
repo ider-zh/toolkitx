@@ -1,7 +1,7 @@
 # 从子模块导入，使其可以直接从 toolkitx 包导入
 from . import lab
-from .text_utils import split_text_by_word_count, truncate_text_smart
 from .html_utils import html_to_markdown
+from .text_utils import split_text_by_word_count, truncate_text_smart
 
 # 定义 __all__，当用户使用 from toolkitx import * 时，会导入这些符号
 __all__ = [
