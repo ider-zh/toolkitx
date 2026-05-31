@@ -102,6 +102,18 @@ def html_to_markdown(html: str, handle_nested_tables: str = "json", **kwargs) ->
     
     Nested tables are converted to JSON strings to maintain structure in Markdown cells.
     Merged cells (colspan/rowspan) are expanded.
+
+    Examples:
+        >>> html = "<table><tr><td>Cell 1</td><td>Cell 2</td></tr></table>"
+        >>> print(html_to_markdown(html))
+        |  |  |
+        | --- | --- |
+        | Cell 1 | Cell 2 |
+        
+        >>> nested_html = "<table><tr><td>Outer <table><tr><td>Inner</td></tr></table></td></tr></table>"
+        >>> md = html_to_markdown(nested_html)
+        >>> "Outer" in md and "Inner" in md
+        True
     """
     soup = BeautifulSoup(html, "html.parser")
     
