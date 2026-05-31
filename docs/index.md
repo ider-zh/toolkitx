@@ -6,6 +6,7 @@ ToolkitX is a personal Python toolkit for common tasks, focusing on resilience, 
 
 - **Task Utils**: Resilience decorators and persistent task queues.
 - **Text Utils**: Smart text truncation and word-count based splitting.
+- **HTML Utils**: Robust HTML to Markdown conversion with advanced table support.
 - **Lab**: Experimental tools including Baidu and Tencent translators.
 
 ## Getting Started
