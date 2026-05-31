@@ -12,13 +12,26 @@ def truncate_text_smart(
     """
     Smartly truncates text based on character or word limit, with tolerance.
 
-    :param text: The original string.
-    :param limit: The target truncation length (in characters or words).
-    :param mode: Truncation mode: 'char' for character-based, 'word' for word-based.
-    :param suffix: The suffix to append after truncation.
-    :param tolerance: The allowed deviation from the limit for smart truncation.
-    :return: The truncated string.
-    :raises ValueError: If the mode is not 'char' or 'word'.
+    Args:
+        text: The original string.
+        limit: The target truncation length (in characters or words).
+        mode: Truncation mode: 'char' for character-based, 'word' for word-based.
+        suffix: The suffix to append after truncation.
+        tolerance: The allowed deviation from the limit for smart truncation.
+
+    Returns:
+        The truncated string.
+
+    Raises:
+        ValueError: If the mode is not 'char' or 'word'.
+
+    Examples:
+        >>> truncate_text_smart("Hello World. This is a test.", limit=12)
+        'Hello World...'
+        >>> truncate_text_smart("Hello World. This is a test.", limit=15, mode="word")
+        'Hello World. This is a test.'
+        >>> truncate_text_smart("A very long sentence that should be truncated by word count.", limit=5, mode="word")
+        'A very long sentence that...'
     """
     if not isinstance(text, str):
         # Or handle non-string input differently, e.g., convert to string or raise TypeError
