@@ -17,7 +17,14 @@ from tqdm import tqdm
 logger = logging.getLogger(__name__)
 
 class TokenBucket:
-    """线程安全的令牌桶限流器"""
+    """
+    线程安全的令牌桶限流器
+
+    Examples:
+        >>> bucket = TokenBucket(capacity=10, fill_rate=1)
+        >>> bucket.consume(1.0)
+        True
+    """
     def __init__(self, capacity: float, fill_rate: float):
         self.capacity = float(capacity)
         self._tokens = float(capacity)
@@ -52,10 +59,19 @@ def with_resilience(
 ):
     """
     通用 API 韧性装饰器
-    :param qps: 每秒最大请求数 (None 表示不限流，依赖默认并发控制)
-    :param max_retries: 遇到网络或 API 错误时的最大退避重试次数
-    :param base_delay: 退避基础延迟 (秒)
-    :param max_delay: 退避最大延迟 (秒)
+
+    Args:
+        qps: 每秒最大请求数 (None 表示不限流，依赖默认并发控制)
+        max_retries: 遇到网络或 API 错误时的最大退避重试次数
+        base_delay: 退避基础延迟 (秒)
+        max_delay: 退避最大延迟 (秒)
+
+    Examples:
+        >>> @with_resilience(qps=100, max_retries=3)
+        ... def fast_func(x):
+        ...     return x + 1
+        >>> fast_func(1)
+        2
     """
     # 装饰器初始化时创建共享的令牌桶实例
     bucket = TokenBucket(capacity=qps, fill_rate=qps) if qps else None
@@ -93,6 +109,32 @@ def with_resilience(
     return decorator
 
 class PersistentTaskQueue:
+    """
+    持久化任务队列，使用 SQLite 存储任务状态，支持并发处理和优雅停机。
+
+    Examples:
+        >>> import polars as pl
+        >>> import tempfile
+        >>> from pathlib import Path
+        >>> with tempfile.TemporaryDirectory() as tmpdir:
+        ...     db_path = Path(tmpdir) / "tasks.db"
+        ...     queue = PersistentTaskQueue(db_path, task_name="test_task")
+        ...     queue.setup()
+        ...     # 1. 压入任务
+        ...     df = pl.DataFrame({
+        ...         "batch_id": ["B1", "B1"],
+        ...         "input_text": ["text1", "text2"]
+        ...     })
+        ...     queue.enqueue_dataframe(df)
+        ...     # 2. 处理任务
+        ...     def my_processor(text: str) -> str:
+        ...         return text.upper()
+        ...     queue.process(worker_func=my_processor, concurrency=2)
+        ...     # 3. 获取结果
+        ...     results = queue.get_results().sort("input_text")
+        ...     print(results["result"].to_list())
+        ['TEXT1', 'TEXT2']
+    """
     def __init__(self, db_path: str|pathlib.Path, task_name: str, max_retries: int = 3):
         """
         初始化持久化任务队列
@@ -179,14 +221,6 @@ class PersistentTaskQueue:
         - 使用 INSERT OR IGNORE 语句，重复的 (batch_id, input_text) 组合会被自动过滤
         - 所有新任务初始状态为 'pending'
         - 此方法是幂等的，可以安全地多次调用相同数据
-        
-        Example:
-            >>> import polars as pl
-            >>> df = pl.DataFrame({
-            ...     "batch_id": ["batch1", "batch1", "batch2"],
-            ...     "input_text": ["text1", "text2", "text3"]
-            ... })
-            >>> queue.enqueue_dataframe(df)
         """
         data = df.select(["batch_id", "input_text"]).to_dicts()
         insert_sql = f"INSERT OR IGNORE INTO {self.table_name} (batch_id, input_text) VALUES (:batch_id, :input_text)"
@@ -269,11 +303,6 @@ class PersistentTaskQueue:
         - 崩溃恢复：启动时自动重置 processing 状态的任务
         - 失败重试：支持自动重试失败的任务
         
-        Example:
-            >>> def my_processor(text: str) -> dict:
-            ...     return {"processed": text.upper()}
-            >>> queue.process(worker_func=my_processor, concurrency=5)
-        
         注意：
         - 此方法会阻塞直到所有任务完成或收到停机信号
         - 收到停机信号后，会将正在处理的任务状态重置为 pending
@@ -348,21 +377,6 @@ class PersistentTaskQueue:
             Polars DataFrame，包含所有已完成任务的结果
             - 如果提供 response_model：包含 batch_id, input_text 以及模型定义的所有字段
             - 如果不提供 response_model：包含 batch_id, input_text, result（解析后的字典）
-        
-        Example:
-            >>> from pydantic import BaseModel
-            >>> 
-            >>> class ResultModel(BaseModel):
-            ...     name: str
-            ...     score: float
-            >>> 
-            >>> # 使用 Pydantic 模型
-            >>> results = queue.get_results(response_model=ResultModel)
-            >>> print(results.select(["name", "score"]))
-            >>> 
-            >>> # 不使用模型，获取原始结果
-            >>> results = queue.get_results()
-            >>> print(results["result"])
         
         说明：
         - 只返回状态为 'completed' 的任务
