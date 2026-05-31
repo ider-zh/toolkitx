@@ -51,7 +51,7 @@ jobs:
     permissions:
       # 对于受信任的发布 (Trusted Publishing) 至 PyPI，此权限是必需的
       id-token: write
-      contents: read # 检出仓库需要
+      contents: write # 检出仓库并创建 Release 需要写权限
 
     steps:
     - name: Checkout repository
