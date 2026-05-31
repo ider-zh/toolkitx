@@ -30,7 +30,7 @@ def truncate_text_smart(
         'Hello World...'
         >>> truncate_text_smart("Hello World. This is a test.", limit=15, mode="word")
         'Hello World. This is a test.'
-        >>> truncate_text_smart("A very long sentence that should be truncated by word count.", limit=5, mode="word")
+        >>> truncate_text_smart("A very long sentence that should be truncated by word count.", limit=5, mode="word", tolerance=2)
         'A very long sentence that...'
     """
     if not isinstance(text, str):
@@ -84,8 +84,8 @@ def truncate_text_smart(
                         break  # Found the latest possible sentence cut within tolerance.
 
         if best_sentence_cut_len != -1:
-            # .rstrip() to handle cases like "Sentence.  " before adding suffix.
-            return text[:best_sentence_cut_len].rstrip() + suffix
+            # Strip terminators and spaces before adding suffix to avoid "Sentence. ..."
+            return text[:best_sentence_cut_len].rstrip("".join(SENTENCE_TERMINATORS) + " ") + suffix
 
         # Attempt 2: Find a word boundary.
         # Search backwards for the last space in the candidate_chunk.
@@ -101,8 +101,8 @@ def truncate_text_smart(
                     break  # Found the latest possible word cut within tolerance.
 
         if best_word_cut_len != -1:
-            # .rstrip() just in case, though text[:best_word_cut_len] should not have trailing spaces.
-            return text[:best_word_cut_len].rstrip() + suffix
+            # Strip terminators and spaces just in case
+            return text[:best_word_cut_len].rstrip("".join(SENTENCE_TERMINATORS) + " ") + suffix
 
         # Fallback: Hard truncate to the ideal_text_part_len.
         return text[:ideal_text_part_len] + suffix
@@ -137,7 +137,7 @@ def truncate_text_smart(
             result_text = " ".join(final_words)
             # Add suffix only if actual truncation happened relative to original word count.
             if len(words) > len(final_words):
-                result_text += suffix
+                result_text = result_text.rstrip("".join(SENTENCE_TERMINATORS) + " ") + suffix
             return result_text
 
         # Fallback: Truncate to the 'limit' number of words.
@@ -145,7 +145,7 @@ def truncate_text_smart(
         final_words = words[:limit]
         result_text = " ".join(final_words)
         if len(words) > len(final_words):  # Add suffix only if truncated
-            result_text += suffix
+            result_text = result_text.rstrip("".join(SENTENCE_TERMINATORS) + " ") + suffix
         return result_text
     else:
         raise ValueError("mode must be 'char' or 'word'")
