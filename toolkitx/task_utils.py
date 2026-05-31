@@ -56,7 +56,7 @@ def with_resilience(
     max_retries: int = 5, 
     base_delay: float = 1.0, 
     max_delay: float = 60.0
-):
+) -> Callable:
     """
     通用 API 韧性装饰器
 
@@ -65,6 +65,9 @@ def with_resilience(
         max_retries: 遇到网络或 API 错误时的最大退避重试次数
         base_delay: 退避基础延迟 (秒)
         max_delay: 退避最大延迟 (秒)
+
+    Returns:
+        一个装饰器函数，用于为目标函数增加限流和重试能力。
 
     Examples:
         >>> @with_resilience(qps=100, max_retries=3)

@@ -18,4 +18,7 @@ docs-serve:
 
 docs-build:
 	uv run --extra docs mkdocs build
+
+test-docs:
+	uv run pytest --doctest-modules toolkitx
  
