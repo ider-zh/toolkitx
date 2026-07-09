@@ -90,7 +90,13 @@ def _expand_table_cells(table):
                 content, tag_name = data
                 new_cell = soup.new_tag(tag_name)
                 # Use BeautifulSoup to parse content to preserve tags like <img> or <a>
-                new_cell.append(BeautifulSoup(content, "html.parser"))
+                sub_soup = BeautifulSoup(content, "html.parser")
+                for child in list(sub_soup.contents):
+                    new_cell.append(child)
+                # Empty cells (e.g. <td rowspan="2"></td>) yield no parseable
+                # children; keep a zero-width space to preserve the cell.
+                if not new_cell.contents:
+                    new_cell.string = "\u200b"
             else:
                 new_cell = soup.new_tag("td")
                 new_cell.string = "\u200b"

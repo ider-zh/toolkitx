@@ -220,3 +220,40 @@ def test_nested_table_link_escaping():
     assert "Link" in md_out
     assert "My Title" in md_out
     assert "\\\"" not in md_out # Ensure no escaped double quotes
+
+
+def test_empty_cells_in_expanded_table():
+    # Regression: empty cells (e.g. <td rowspan="2"></td>) previously raised
+    # "list index out of range" during cell reconstruction.
+    html = """
+    <table>
+      <tr>
+        <td colspan="3">TITLE</td>
+        <td colspan="3">ITEM</td>
+      </tr>
+      <tr>
+        <td>SCALE</td>
+        <td>NONE</td>
+        <td rowspan="2">TOL</td>
+        <td>DESIGNER</td>
+        <td>PXY</td>
+        <td rowspan="2"></td>
+      </tr>
+      <tr>
+        <td>PAGE</td>
+        <td>1 OF 1</td>
+        <td>CHECKED</td>
+        <td></td>
+      </tr>
+    </table>
+    """
+    md = html_to_markdown(html)
+    # 6 columns across all rows (colspan 3+3 on header row)
+    rows = [r for r in md.strip().split("\n") if r.startswith("|")]
+    assert len(rows) == 4  # header + separator + 2 data rows
+    assert all(r.count("|") == 7 for r in rows)  # 6 cells -> 7 pipes
+    # Expanded rowspan content is preserved
+    assert "TOL" in md
+    assert "DESIGNER" in md
+    # Empty cells are still present (zero-width placeholders)
+    assert "SCALE" in md and "PAGE" in md

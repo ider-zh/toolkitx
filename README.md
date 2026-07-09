@@ -106,6 +106,9 @@ make docs-build
 
 ## Changelog
 
+### v0.0.7 (2026-07-09)
+- **Bug Fix**: `html_to_markdown` no longer crashes (`IndexError: list index out of range`) when expanding tables that contain empty cells (e.g. `<td rowspan="2"></td>`). Empty cells now render as zero-width placeholders while preserving colspan/rowspan expansion.
+
 ### v0.0.6 (2026-07-09)
 - **Dependency**: Pinned `tencentcloud-sdk-python` to `<3.1.106`. The Tencent SDK removed the TMT `TextTranslate` API (incl. `TextTranslateRequest`) starting in `3.1.106`, which would break `toolkitx.lab.translator`. The text-translation engine now stays on the last compatible release.
 
