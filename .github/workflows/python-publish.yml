@@ -10,9 +10,6 @@ on:
     branches:
       - main   # 在向 main 分支发起 Pull Request 时运行测试
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -22,16 +19,16 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: Install uv
-      uses: astral-sh/setup-uv@v5
+      uses: astral-sh/setup-uv@v8
       with:
         # Install the latest stable version of uv
         enable-cache: true
 
     - name: "Set up Python"
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version-file: ".python-version"
 
@@ -55,15 +52,15 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: Install uv
-      uses: astral-sh/setup-uv@v5
+      uses: astral-sh/setup-uv@v8
       with:
         enable-cache: true
 
     - name: "Set up Python"
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version-file: ".python-version"
 
@@ -77,7 +74,7 @@ jobs:
       run: uv publish --token ${{ secrets.PYPI_API_TOKEN }}
 
     - name: Create GitHub Release (Optional)
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v3
       if: success() # 仅在发布成功时创建 Release
       with:
         token: ${{ secrets.GITHUB_TOKEN }} # Actions 自动提供此 token
