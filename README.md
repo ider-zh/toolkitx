@@ -106,6 +106,9 @@ make docs-build
 
 ## Changelog
 
+### v0.0.6 (2026-07-09)
+- **Dependency**: Pinned `tencentcloud-sdk-python` to `<3.1.106`. The Tencent SDK removed the TMT `TextTranslate` API (incl. `TextTranslateRequest`) starting in `3.1.106`, which would break `toolkitx.lab.translator`. The text-translation engine now stays on the last compatible release.
+
 ### v0.0.5 (2026-05-30)
 - **New Feature**: Added `html_utils` with robust `html_to_markdown` converter.
 - **Improved**: `truncate_text_smart` now strips trailing punctuation before appending suffix.
